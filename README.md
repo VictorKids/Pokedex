@@ -18,15 +18,13 @@ python csv_to_db.py
 python main.py
 ```
 
-  If some error about an empty database happens, comment the line with "self.import_historic()" (around line 30)
-  Run the main
-  After that, you can uncomment the line
+  If some error about an empty database happens, comment the line with "self.import_historic()" (around line 30), then run the main. After that, you can uncomment the line.
 
 <h3>To Do:</h3>
 
-* Apply clean code;
+* Apply clean code rules;
 * Add more information in the hover message box;
-* Create an first time run mode, to avoid the database error;
+* Create a first time run mode, to avoid the database error;
 * Add up to generation 7;
 * Improve the frontend.
 
