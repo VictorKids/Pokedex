@@ -1,4 +1,13 @@
-# Pokédex
+<h1 allign="center"> Pokédex </h1>
+
+A Python grafical user interface project originated from a idea in a Pokémon RPG play test. It emulates some of the features of a Pokédex in order to allow the players to track all Pokémon they have seen during their journey.
+
+<h3>Technologies</h3>
+
+* Python
+    * Tkinter
+    * Pickle
+* Sqlite3
 
 >It only works up to gen1 until now.
 
