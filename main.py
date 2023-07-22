@@ -7,6 +7,33 @@ import sqlite3
 import pickle
 from PIL import ImageTk, Image
 
+class SpritesData:
+    def __init__(self, saved_sprites, saved_names, saved_ids):
+        self.sprites = saved_sprites # sprites objects list
+        self.names   = saved_names   # sprites name for future checking
+        self.ids     = saved_ids     # sprites ids for future sorting
+    
+    def load_sprites_data(self, pickle_names, pickle_ids):
+        self.names = pickle_names
+        self.ids   = pickle_ids
+        for name in self.names:
+            self.sprites.append(ImageTk.PhotoImage(Image.open("imgs/"+ name +".png").resize((80,80))))
+
+    def append_all_sprite_info(self, sprite, name, id):
+        self.sprites.append(sprite)
+        self.ids.append(id)
+        self.names.append(name)
+
+    def insert_all_sprite_info(self, sprite, name, id, index):
+        self.sprites.insert(index, sprite)
+        self.ids.insert(index, id)
+        self.names.insert(index, name)
+
+    def remove_all_sprite_info(self, index):
+        del self.sprites[int(index)-1]
+        del self.names[int(index)-1]
+        del self.ids[int(index)-1]        
+
 class MainApp(tk.Tk):
 
     def __init__(self):
@@ -22,10 +49,8 @@ class MainApp(tk.Tk):
         ### Importing Data #########################################################################################
         
         self.connection = sqlite3.connect("pokemon.db")
-        self.pkm_list = self.get_names()  
-        self.sprites = [] # sprites objects list
-        self.sprites_names = [] # sprites name for future checking
-        self.sprites_ids = [] # sprites ids for future sorting
+        self.pkm_list = self.get_names_from_database()  
+        self.sprites = SpritesData([], [], []) 
         self.sprites_control = []
         self.tooltips = []
 
@@ -80,7 +105,7 @@ class MainApp(tk.Tk):
         # right side of the frame, where the scroll bar will be
         # and connecting left side to the scroll bar action
         self.scrollbar = Scrollbar(self.pkm_list_mainframe, orient="vertical", command=self.canvas.yview)
-        self.scrollbar.grid(row=0, column=1, sticky="ns", rowspan=max(math.ceil(len(self.sprites)/4), 1))
+        self.scrollbar.grid(row=0, column=1, sticky="ns", rowspan=max(math.ceil(len(self.sprites.sprites)/4), 1))
         self.canvas.config(yscrollcommand=self.scrollbar.set)
 
         # internal frame of the left side canvas
@@ -106,37 +131,23 @@ class MainApp(tk.Tk):
         self.tail_frame.grid(row=4, column=0)
 
 
-    ### Utility Functions ##########################################################################################       
+    ### Import and Export data with Pickle ##########################################################################       
 
     def import_historic(self):
         if path.getsize("names_historic.pkl") != 0:
             with open("names_historic.pkl", "rb") as hist_names_file:
                 with open("ids_historic.pkl", "rb") as hist_ids_file:
-                    self.sprites_names = pickle.load(hist_names_file)
-                    self.sprites_ids = pickle.load(hist_ids_file)
-                    for name in self.sprites_names:
-                        self.load_sprite(name)
-
-    def load_sprite(self, name):
-        # add a sprite in the sprites list (and sort it by (not yet))
-        self.sprites.append(ImageTk.PhotoImage(Image.open("imgs/"+ name +".png").resize((80,80))))
-
+                    self.sprites.load_sprites_data(pickle.load(hist_names_file), pickle.load(hist_ids_file))
+     
     def save_historic(self):
         with open("names_historic.pkl", "wb") as hist_names_file:
             with open("ids_historic.pkl", "wb") as hist_ids_file:
-                pickle.dump(self.sprites_names, hist_names_file)
-                pickle.dump(self.sprites_ids, hist_ids_file)
+                pickle.dump(self.sprites.names, hist_names_file)
+                pickle.dump(self.sprites.ids, hist_ids_file)
+   
+    ### Database handling ##########################################################################################       
 
-    def sprite_hover(self, index):
-        pkm_name = self.sprites_names[index]
-        pkm_num = f"{self.sprites_ids[index]}"
-        pkm_classfi = self.get_classification(pkm_name)
-        pkm_type1, pkm_type2 = self.get_types(pkm_name)
-        pkm_info = " " + pkm_name + "  #" + pkm_num + "\n\n" + pkm_classfi + "\n\n" + pkm_type1 + " " + pkm_type2
-        return pkm_info
-
-
-    def get_names(self):
+    def get_names_from_database(self):
         with self.connection:
             tuples_list = self.connection.execute("SELECT name FROM all_pokemon ORDER BY pokedex_number ASC;").fetchall()
             names_list = []
@@ -144,40 +155,46 @@ class MainApp(tk.Tk):
                 names_list.append(t[0])
             return names_list
 
-    def get_id(self, name):
+    def get_id_from_database(self, name):
         with self.connection:
             a_tuple = self.connection.execute(f"SELECT pokedex_number FROM all_pokemon WHERE name='{name}';").fetchall()
             return a_tuple[0][0]
 
-    def get_classification(self, name):
+    def get_classification_from_database(self, name):
         with self.connection:
             a_tuple = self.connection.execute(f"SELECT classfication FROM all_pokemon WHERE name='{name}';").fetchall()
             return a_tuple[0][0]
 
-    def get_types(self, name):
+    def get_types_from_database(self, name):
         with self.connection:
             a_tuple1 = self.connection.execute(f"SELECT type1 FROM all_pokemon WHERE name='{name}';").fetchall()       
             a_tuple2 = self.connection.execute(f"SELECT type2 FROM all_pokemon WHERE name='{name}';").fetchall()
             if a_tuple2[0][0] == None:
                 return a_tuple1[0][0], ""       
             return a_tuple1[0][0], a_tuple2[0][0]       
+    
+    ### Utility Functions ##########################################################################################       
+
+    def sprite_hover(self, index):
+        pkm_name = self.sprites.names[index]
+        pkm_num = f"{self.sprites.ids[index]}"
+        pkm_classfi = self.get_classification_from_database(pkm_name)
+        pkm_type1, pkm_type2 = self.get_types_from_database(pkm_name)
+        pkm_info = " " + pkm_name + "  #" + pkm_num + "\n\n" + pkm_classfi + "\n\n" + pkm_type1 + " " + pkm_type2
+        return pkm_info
 
     def reset_scrollregion(self, event):
         # redifine scrollbar size acording to sprites list updates
         self.canvas.config(scrollregion=self.canvas.bbox("all"))
 
     def add_sprite(self, name, dex_number):
-        if name not in self.sprites_names:                
-            if len(self.sprites_ids) == 0 or self.sprites_ids[-1] <= dex_number: # if the id is the final id in the list
-                self.sprites_ids.append(dex_number)
-                self.sprites.append(ImageTk.PhotoImage(Image.open("imgs/"+ name +".png").resize((80,80))))
-                self.sprites_names.append(name)               
+        if name not in self.sprites.names:                
+            if len(self.sprites.ids) == 0 or self.sprites.ids[-1] <= dex_number: # if the id is the final id in the list
+                self.sprites.append_all_sprite_info(ImageTk.PhotoImage(Image.open("imgs/"+ name +".png").resize((80,80))), name, dex_number)               
             else:
-                for id_index in range(len(self.sprites_ids)):
-                    if dex_number <= self.sprites_ids[id_index]:
-                        self.sprites_ids.insert(id_index, dex_number)
-                        self.sprites.insert(id_index, ImageTk.PhotoImage(Image.open("imgs/"+ name +".png").resize((80,80))))
-                        self.sprites_names.insert(id_index, name)
+                for id_index in range(len(self.sprites.ids)):
+                    if dex_number <= self.sprites.ids[id_index]:
+                        self.sprites.insert_all_sprite_info(ImageTk.PhotoImage(Image.open("imgs/"+ name +".png").resize((80,80))), name, dex_number, id_index)
                         break
             # add a sprite in the sprites list (and sort it by (not yet))
 
@@ -185,7 +202,7 @@ class MainApp(tk.Tk):
         # check if an option from the drop down menu has been selected
         tmp_name = self.clicked.get()
         if tmp_name != "Search for the new Pokémon name":
-            self.add_sprite(tmp_name, self.get_id(tmp_name))
+            self.add_sprite(tmp_name, self.get_id_from_database(tmp_name))
         k = 0
         j = 0
         # remove past sprites list labels, this way past elements will not apper in unplesent positions 
@@ -193,8 +210,8 @@ class MainApp(tk.Tk):
             i.destroy()
 
         # reprint all sprites, saving references to the objects to an easier remove later, if needed
-        for i in range(len(self.sprites)):
-            lab = tk.Label(self.pkm_list_frame, image=self.sprites[i])
+        for i in range(len(self.sprites.sprites)):
+            lab = tk.Label(self.pkm_list_frame, image=self.sprites.sprites[i])
             tip = ToolTip(lab, msg=self.sprite_hover(i))
             self.sprites_control.append(lab)
             self.tooltips.append(tip)
@@ -210,10 +227,8 @@ class MainApp(tk.Tk):
         # get the input in the entry
         # checks if it is viable, and if yes, remove the respective sprite
         index = self.entry.get()
-        if index.isdecimal() and int(index) <= len(self.sprites) and int(index) > 0:
-            del self.sprites[int(index)-1]
-            del self.sprites_names[int(index)-1]
-            del self.sprites_ids[int(index)-1]
+        if index.isdecimal() and int(index) <= len(self.sprites.sprites) and int(index) > 0:
+            self.sprites.remove_all_sprite_info(index)
             self.print_mons()
         self.entry.delete(0, 'end') # clean the entry area
 
